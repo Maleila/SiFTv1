@@ -5,6 +5,9 @@ from siftprotocols.siftmtp import SiFT_MTP, SiFT_MTP_Error
 from siftprotocols.siftlogin import SiFT_LOGIN, SiFT_LOGIN_Error
 from siftprotocols.siftcmd import SiFT_CMD, SiFT_CMD_Error
 import RSA
+import keypair
+#sys.path.append('/client')
+import pubkey
 
 class Server:
     def __init__(self):
@@ -26,7 +29,7 @@ class Server:
 
         #set up RSA keys
         myRSA = RSA()
-        myRSA.GENER
+        myRSA.KEY_PAIR_GENERATION(pubkey, keypair)
 
 
     def load_users(self, usersfile):
