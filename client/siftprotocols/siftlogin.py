@@ -4,6 +4,10 @@ import time
 from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF2
 from siftprotocols.siftmtp import SiFT_MTP, SiFT_MTP_Error
+from Crypto.PublicKey import RSA
+from base64 import b64encode, b64decode
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Util import Padding
 
 
 class SiFT_LOGIN_Error(Exception):
@@ -67,6 +71,22 @@ class SiFT_LOGIN:
         pwdhash = PBKDF2(pwd, usr_struct['salt'], len(usr_struct['pwdhash']), count=usr_struct['icount'], hmac_hash_module=SHA256)
         if pwdhash == usr_struct['pwdhash']: return True
         return False
+    
+    def DECRYPT(self, keypair, ciphertext):
+        print('Decrypting...')
+
+        RSAcipher = PKCS1_OAEP.new(keypair)
+        padded_plaintext = RSAcipher.decrypt(ciphertext)
+        plaintext = Padding.unpad(padded_plaintext, AES.block_size, style='pkcs7')
+        return plaintext
+
+    def ENCRYPT(self, pubkey, plaintext):
+        print('Encrypting...')
+
+        RSAcipher = PKCS1_OAEP.new(pubkey)
+        padded_plaintext = Padding.pad(plaintext, AES.block_size, style='pkcs7') #might need to change the block size
+        cipherText = RSAcipher.encrypt(padded_plaintext)
+        return cipherText
 
 
     # handles login process (to be used by the server)
@@ -132,13 +152,14 @@ class SiFT_LOGIN:
 
 
     # handles login process (to be used by the client)
-    def handle_login_client(self, username, password):
+    def handle_login_client(self, username, password, pubkey):
 
         # building a login request
         login_req_struct = {}
         login_req_struct['username'] = username
         login_req_struct['password'] = password
         msg_payload = self.build_login_req(login_req_struct)
+        encrypted_msg_payload = self.ENCRYPT(pubkey, msg_payload)
 
         # DEBUG 
         if self.DEBUG:
@@ -149,7 +170,7 @@ class SiFT_LOGIN:
 
         # trying to send login request
         try:
-            self.mtp.send_msg(self.mtp.type_login_req, msg_payload)
+            self.mtp.send_msg(self.mtp.type_login_req, encrypted_msg_payload)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error('Unable to send login request --> ' + e.err_msg)
 
@@ -180,4 +201,3 @@ class SiFT_LOGIN:
         # checking request_hash receiveid in the login response
         if login_res_struct['request_hash'] != request_hash:
             raise SiFT_LOGIN_Error('Verification of login response failed')
-

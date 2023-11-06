@@ -9,26 +9,25 @@ from Crypto.Hash import SHA256
 from Crypto.Util import Padding
 from Crypto import Random
 
-
-def save_publickey(pubkey, pubkeyfile):
-    with open(pubkeyfile, 'wb') as f:
+def save_publickey(pubkey):
+    with open("pubkey.pem", 'wb') as f:
         f.write(pubkey.export_key(format='PEM'))
 
 
-def load_publickey(pubkeyfile):
-    with open(pubkeyfile, 'rb') as f:
-        pubkeystr = f.read()
-    try:
-        return RSA.import_key(pubkeystr)
-    except ValueError:
-        print('Error: Cannot import public key from file ' + pubkeyfile)
-        sys.exit(1)
+# def load_publickey():
+#     with open("pubkey.pem", 'rb') as f:
+#         pubkeystr = f.read()
+#     try:
+#         return RSA.import_key(pubkeystr)
+#     except ValueError:
+#         print('Error: Cannot import public key from file ')
+#         sys.exit(1)
 
 
-def save_keypair(keypair, privkeyfile):
+def save_keypair(keypair):
     passphrase = getpass.getpass(
         'Enter a passphrase to protect the saved private key: ')
-    with open(privkeyfile, 'wb') as f:
+    with open("keypair.pem", 'wb') as f:
         f.write(keypair.export_key(format='PEM', passphrase=passphrase))
 
 
@@ -47,97 +46,28 @@ def load_keypair(privkeyfile):
 def newline(s):
     return s + b'\n'
 
-# ----------------------------------
-# processing command line parameters
-# ----------------------------------
-
-
-# operation = None
-# pubkeyfile = None
-# privkeyfile = None
-# inputfile = None
-# outputfile = None
-# sign = False
-
-# try:
-#     opts, args = getopt.getopt(sys.argv[1:], 'hkedp:s:i:o:', [
-#                                'help', 'kpg', 'enc', 'dec', 'pubkeyfile=', 'privkeyfile=', 'inputfile=', 'outputfile='])
-# except getopt.GetoptError:
-#     print('Usage:')
-#     print('  - RSA key pair generation:')
-#     print('    hybrid.py -k -p <pubkeyfile> -s <privkeyfile>')
-#     print('  - encryption with optional signature generation:')
-#     print(
-#         '    hybrid.py -e -p <pubkeyfile> [-s <privkeyfile>] -i <inputfile> -o <outputfile>')
-#     print('  - decryption with optional signature verification:')
-#     print(
-#         '    hybrid.py -d -s <privkeyfile> [-p <pubkeyfile>] -i <inputfile> -o <outputfile>')
-#     sys.exit(1)
-
-# for opt, arg in opts:
-#     if opt in ('-h', '--help'):
-#         print('Usage:')
-#         print('  - RSA key pair generation:')
-#         print('    hybrid.py -k -p <pubkeyfile> -s <privkeyfile>')
-#         print('  - encryption with optional signature generation:')
-#         print(
-#             '    hybrid.py -e -p <pubkeyfile> [-s <privkeyfile>] -i <inputfile> -o <outputfile>')
-#         print('  - decryption with optional signature verification:')
-#         print(
-#             '    hybrid.py -d -s <privkeyfile> [-p <pubkeyfile>] -i <inputfile> -o <outputfile>')
-#         sys.exit(0)
-#     elif opt in ('-k', '--kpg'):
-#         operation = 'kpg'
-#     elif opt in ('-e', '--enc'):
-#         operation = 'enc'
-#     elif opt in ('-d', '--dec'):
-#         operation = 'dec'
-#     elif opt in ('-p', '--pubkeyfile'):
-#         pubkeyfile = arg
-#     elif opt in ('-s', '--privkeyfile'):
-#         privkeyfile = arg
-#     elif opt in ('-i', '--inputfile'):
-#         inputfile = arg
-#     elif opt in ('-o', '--outputfile'):
-#         outputfile = arg
-
-# if operation not in ('enc', 'dec', 'kpg'):
-#     print('Error: Operation must be -k (for key pair generation) or -e (for encryption) or -d (for decryption).')
-#     sys.exit(1)
-
-# if (not pubkeyfile) and (operation == 'enc' or operation == 'kpg'):
-#     print('Error: Name of the public key file is missing.')
-#     sys.exit(1)
-
-# if (not privkeyfile) and (operation == 'dec' or operation == 'kpg'):
-#     print('Error: Name of the private key file is missing.')
-#     sys.exit(1)
-
-# if (not inputfile) and (operation == 'enc' or operation == 'dec'):
-#     print('Error: Name of input file is missing.')
-#     sys.exit(1)
-
-# if (not outputfile) and (operation == 'enc' or operation == 'dec'):
-#     print('Error: Name of output file is missing.')
-#     sys.exit(1)
-
-# if (operation == 'enc') and privkeyfile:
-#     sign = True
-
 # -------------------
 # key pair generation
 # -------------------
 
-def KEY_PAIR_GENERATION(pubkeyfile, privkeyfile):
+def KEY_PAIR_GENERATION():
     print('Generating a new 2048-bit RSA key pair...')
     keypair = RSA.generate(2048)
-    save_publickey(keypair.publickey(), pubkeyfile)
-    save_keypair(keypair, privkeyfile)
+    save_publickey(keypair.publickey())
+    save_keypair(keypair)
     print('Done.')
 
 # ----------
 # encryption
 # ----------
+
+def ENCRYPT(pubkey, plaintext):
+    print('Encrypting...')
+
+    RSAcipher = PKCS1_OAEP.new(pubkey)
+    padded_plaintext = Padding.pad(plaintext, AES.block_size, style='pkcs7') #might need to change the block size
+    cipherText = RSAcipher.encrypt(padded_plaintext)
+    return cipherText
 
 
 def ENCRYPTION(pubkeyfile, pubkey, privkeyfile, inputfile, outputfile, sign):
@@ -192,6 +122,14 @@ def ENCRYPTION(pubkeyfile, pubkey, privkeyfile, inputfile, outputfile, sign):
 # ----------
 # decryption
 # ----------
+
+def DECRYPT(keypair, ciphertext):
+    print('Decrypting...')
+
+    RSAcipher = PKCS1_OAEP.new(keypair)
+    padded_plaintext = RSAcipher.decrypt(ciphertext)
+    plaintext = Padding.unpad(padded_plaintext, AES.block_size, style='pkcs7')
+    return plaintext
 
 
 def DECRYPTION(pubkeyfile, pubkey, privkeyfile, inputfile, outputfile):
@@ -265,3 +203,5 @@ def DECRYPTION(pubkeyfile, pubkey, privkeyfile, inputfile, outputfile):
         f.write(plaintext)
 
     print('Done.')
+
+KEY_PAIR_GENERATION()

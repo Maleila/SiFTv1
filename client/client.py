@@ -7,6 +7,7 @@ from siftprotocols.siftlogin import SiFT_LOGIN, SiFT_LOGIN_Error
 from siftprotocols.siftcmd import SiFT_CMD, SiFT_CMD_Error
 from siftprotocols.siftupl import SiFT_UPL, SiFT_UPL_Error
 from siftprotocols.siftdnl import SiFT_DNL, SiFT_DNL_Error
+from Crypto.PublicKey import RSA
 
 # ----------- CONFIG -------------
 server_ip = '127.0.0.1' # localhost
@@ -184,8 +185,7 @@ class SiFTShell(cmd.Cmd):
         print('Closing connection with server...')
         sckt.close()
         return True
-
-
+    
 # --------------------------------------
 if __name__ == '__main__':
 
@@ -201,13 +201,22 @@ if __name__ == '__main__':
     mtp = SiFT_MTP(sckt)
     loginp = SiFT_LOGIN(mtp)
 
+    #read in public key
+    with open("pubkey.pem", 'rb') as f:
+        pubkeystr = f.read()
+    try:
+        pubkey =  RSA.import_key(pubkeystr)
+    except ValueError:
+        print('Error: Cannot import public key from file pubkey.pem')
+        sys.exit(1)
+
     print()
     username = input('   Username: ')
     password = getpass.getpass('   Password: ')
     print()
 
     try:
-        loginp.handle_login_client(username, password)
+        loginp.handle_login_client(username, password, pubkey)
     except SiFT_LOGIN_Error as e:
         print('SiFT_LOGIN_Error: ' + e.err_msg)
         sys.exit(1)

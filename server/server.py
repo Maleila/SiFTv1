@@ -4,10 +4,7 @@ import sys, threading, socket, getpass
 from siftprotocols.siftmtp import SiFT_MTP, SiFT_MTP_Error
 from siftprotocols.siftlogin import SiFT_LOGIN, SiFT_LOGIN_Error
 from siftprotocols.siftcmd import SiFT_CMD, SiFT_CMD_Error
-import RSA
-import keypair
-#sys.path.append('/client')
-import pubkey
+from Crypto.PublicKey import RSA
 
 class Server:
     def __init__(self):
@@ -25,11 +22,8 @@ class Server:
         self.server_socket.bind((self.server_ip, self.server_port))
         self.server_socket.listen(5)
         print('Listening on ' + self.server_ip + ':' + str(self.server_port))
-        self.accept_connections()
 
-        #set up RSA keys
-        myRSA = RSA()
-        myRSA.KEY_PAIR_GENERATION(pubkey, keypair)
+        self.accept_connections()
 
 
     def load_users(self, usersfile):
@@ -59,13 +53,24 @@ class Server:
         print('New client on ' + addr[0] + ':' + str(addr[1]))
 
         mtp = SiFT_MTP(client_socket)
+        
+        #read in keypair
+        passphrase = getpass.getpass(
+            'Enter a passphrase to decode the saved private key: ')
+        with open("keypair.pem", 'rb') as f:
+            keypairstr = f.read()
+        try:
+            keypair = RSA.import_key(keypairstr, passphrase=passphrase)
+        except ValueError:
+            print('Error: Cannot import private key from file keypair.pem')
+            sys.exit(1)
 
         loginp = SiFT_LOGIN(mtp)
         users = self.load_users(self.server_usersfile)
         loginp.set_server_users(users)
 
         try:
-            user = loginp.handle_login_server()
+            user = loginp.handle_login_server(keypair)
         except SiFT_LOGIN_Error as e:
             print('SiFT_LOGIN_Error: ' + e.err_msg)
             print('Closing connection with client on ' + addr[0] + ':' + str(addr[1]))
