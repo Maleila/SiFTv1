@@ -186,11 +186,11 @@ class SiFT_LOGIN:
 
         # building a login request
         login_req_struct = {}
-        login_req_struct['timestamp'] = time.time_ns().toString()
+        login_req_struct['timestamp'] = time.time_ns()
         login_req_struct['username'] = username
         login_req_struct['password'] = password
         login_req_struct['client_random'] = Crypto.Random.get_random_bytes(
-            16).toString()
+            16)
         msg_payload = self.build_login_req(login_req_struct)
         encrypted_msg_payload = self.ENCRYPT(pubkey, msg_payload)
 
