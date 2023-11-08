@@ -1,15 +1,19 @@
-#python3
+# python3
 
-import sys, threading, socket, getpass
+import sys
+import threading
+import socket
+import getpass
 from siftprotocols.siftmtp import SiFT_MTP, SiFT_MTP_Error
 from siftprotocols.siftlogin import SiFT_LOGIN, SiFT_LOGIN_Error
 from siftprotocols.siftcmd import SiFT_CMD, SiFT_CMD_Error
 from Crypto.PublicKey import RSA
 
+
 class Server:
     def __init__(self):
         # ------------------------ CONFIG -----------------------------
-        self.server_usersfile = 'users.txt' 
+        self.server_usersfile = 'users.txt'
         self.server_usersfile_coding = 'utf-8'
         self.server_usersfile_rec_delimiter = '\n'
         self.server_usersfile_fld_delimiter = ':'
@@ -18,13 +22,12 @@ class Server:
         # self.server_ip = socket.gethostbyname(socket.gethostname())
         self.server_port = 5150
         # -------------------------------------------------------------
-        self.server_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.server_ip, self.server_port))
         self.server_socket.listen(5)
         print('Listening on ' + self.server_ip + ':' + str(self.server_port))
 
         self.accept_connections()
-
 
     def load_users(self, usersfile):
         users = {}
@@ -42,19 +45,18 @@ class Server:
             users[username] = usr_struct
         return users
 
-
     def accept_connections(self):
         while True:
             client_socket, addr = self.server_socket.accept()
-            threading.Thread(target=self.handle_client, args=(client_socket, addr, )).start()
-
+            threading.Thread(target=self.handle_client,
+                             args=(client_socket, addr, )).start()
 
     def handle_client(self, client_socket, addr):
         print('New client on ' + addr[0] + ':' + str(addr[1]))
 
         mtp = SiFT_MTP(client_socket)
-        
-        #read in keypair
+
+        # read in keypair
         passphrase = getpass.getpass(
             'Enter a passphrase to decode the saved private key: ')
         with open("keypair.pem", 'rb') as f:
@@ -73,7 +75,8 @@ class Server:
             user = loginp.handle_login_server(keypair)
         except SiFT_LOGIN_Error as e:
             print('SiFT_LOGIN_Error: ' + e.err_msg)
-            print('Closing connection with client on ' + addr[0] + ':' + str(addr[1]))
+            print('Closing connection with client on ' +
+                  addr[0] + ':' + str(addr[1]))
             client_socket.close()
             return
 
@@ -86,7 +89,8 @@ class Server:
                 cmdp.receive_command()
             except SiFT_CMD_Error as e:
                 print('SiFT_CMD_Error: ' + e.err_msg)
-                print('Closing connection with client on ' + addr[0] + ':' + str(addr[1]))
+                print('Closing connection with client on ' +
+                      addr[0] + ':' + str(addr[1]))
                 client_socket.close()
                 return
 
