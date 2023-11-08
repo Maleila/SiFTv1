@@ -146,5 +146,5 @@ class SiFT_MTP:
                 'Unable to send message to peer --> ' + e.err_msg)
 
 
-def set_key(self, new_key):
-    self.key = new_key
+    def set_key(self, new_key):
+        self.key = new_key
