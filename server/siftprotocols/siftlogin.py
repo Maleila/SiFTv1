@@ -39,10 +39,10 @@ class SiFT_LOGIN:
 
     def build_login_req(self, login_req_struct):
 
-        login_req_str = login_req_struct['timestamp']
+        login_req_str = str(login_req_struct['timestamp'])
         login_req_str += self.delimiter + login_req_struct['username']
         login_req_str += self.delimiter + login_req_struct['password']
-        login_req_str += self.delimiter + login_req_struct['client_random']
+        login_req_str += self.delimiter + str(login_req_struct['client_random'])
         return login_req_str.encode(self.coding)
 
     # parses a login request into a dictionary
@@ -54,11 +54,11 @@ class SiFT_LOGIN:
         login_req_struct['timestamp'] = login_req_fields[0]
         login_req_struct['username'] = login_req_fields[1]
 
-        hash_fn = SHA256.new()
-        hash_fn.update(login_req_fields[2])
-        login_req_struct['password'] = hash_fn.digest()
+        # hash_fn = SHA256.new()
+        # hash_fn.update(bytes(login_req_fields[2], "utf-8"))
+        # login_req_struct['password'] = hash_fn.digest()
 
-        # login_req_struct['password'] = login_req_fields[2] #hash this probably
+        login_req_struct['password'] = login_req_fields[2]
         login_req_struct['client_random'] = login_req_fields[3]
         return login_req_struct
 
@@ -67,6 +67,7 @@ class SiFT_LOGIN:
     def build_login_res(self, login_res_struct):
 
         login_res_str = login_res_struct['request_hash'].hex()
+        login_res_str += self.delimiter + str(login_res_struct['server_random'])
         return login_res_str.encode(self.coding)
 
     # parses a login response into a dictionary
@@ -141,7 +142,7 @@ class SiFT_LOGIN:
         login_req_struct = self.parse_login_req(msg_payload)
 
         # checking timestamp #might need to use float
-        if abs(login_req_struct['timestamp'].toInt() - time.time_ns()) > 2000000000:
+        if abs(int(login_req_struct['timestamp']) - time.time_ns()) > 2000000000:
             raise SiFT_LOGIN_Error('Timestamp outside acceptance window')
             # might need to explicitly tell it to stop if the error is raised we'll see
 
@@ -155,8 +156,8 @@ class SiFT_LOGIN:
         # building login response
         login_res_struct = {}
         login_res_struct['request_hash'] = request_hash
-        login_req_struct['server_random'] = Crypto.Random.get_random_bytes(
-            16).toString()
+        login_res_struct['server_random'] = str(Crypto.Random.get_random_bytes(
+            16))
         msg_payload = self.build_login_res(login_res_struct)
 
         # DEBUG
@@ -186,11 +187,11 @@ class SiFT_LOGIN:
 
         # building a login request
         login_req_struct = {}
-        login_req_struct['timestamp'] = time.time_ns().toString()
+        login_req_struct['timestamp'] = time.time_ns()
         login_req_struct['username'] = username
         login_req_struct['password'] = password
         login_req_struct['client_random'] = Crypto.Random.get_random_bytes(
-            16).toString()
+            16)
         msg_payload = self.build_login_req(login_req_struct)
         encrypted_msg_payload = self.ENCRYPT(pubkey, msg_payload)
 
@@ -239,8 +240,10 @@ class SiFT_LOGIN:
             raise SiFT_LOGIN_Error('Verification of login response failed')
 
         key_material = login_req_struct['client_random'] + \
-            login_res_struct['server_random']
+            bytes(login_res_struct['server_random'], "utf-8")
         final_transfer_key = HKDF(
             key_material, 32, login_res_struct['request_hash'], SHA256, 1)
+        
+        
 
         self.mtp.set_key(final_transfer_key)
