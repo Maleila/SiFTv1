@@ -1,6 +1,9 @@
 # python3
 
 import socket
+import Crypto.Random
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.PublicKey import RSA
 
 
 class SiFT_MTP_Error(Exception):
@@ -17,10 +20,14 @@ class SiFT_MTP:
         self.version_major = 0
         self.version_minor = 5
         self.msg_hdr_ver = b'\x00\x05'
+        # self.size_msg_hdr = 16
         self.size_msg_hdr = 6
         self.size_msg_hdr_ver = 2
         self.size_msg_hdr_typ = 2
         self.size_msg_hdr_len = 2
+        self.size_msg_hdr_sqn = 2
+        self.size_msg_hdr_rnd = 6
+        self.size_msg_hdr_rsv = 2
         self.type_login_req = b'\x00\x00'
         self.type_login_res = b'\x00\x10'
         self.type_command_req = b'\x01\x00'
@@ -31,6 +38,7 @@ class SiFT_MTP:
         self.type_dnload_req = b'\x03\x00'
         self.type_dnload_res_0 = b'\x03\x10'
         self.type_dnload_res_1 = b'\x03\x11'
+        self.rsv_val = b'0000'
         self.msg_types = (self.type_login_req, self.type_login_res,
                           self.type_command_req, self.type_command_res,
                           self.type_upload_req_0, self.type_upload_req_1, self.type_upload_res,
@@ -48,7 +56,13 @@ class SiFT_MTP:
                                            self.size_msg_hdr_ver], i+self.size_msg_hdr_ver
         parsed_msg_hdr['typ'], i = msg_hdr[i:i +
                                            self.size_msg_hdr_typ], i+self.size_msg_hdr_typ
-        parsed_msg_hdr['len'] = msg_hdr[i:i+self.size_msg_hdr_len]
+        parsed_msg_hdr['len'], i = msg_hdr[i:i +
+                                           self.size_msg_hdr_len], i+self.size_msg_hdr_len
+        parsed_msg_hdr['sqn'], i = msg_hdr[i:i +
+                                           self.size_msg_hdr_sqn], i+self.size_msg_hdr_sqn
+        parsed_msg_hdr['rnd'], i = msg_hdr[i:i +
+                                           self.size_msg_hdr_rnd], i+self.size_msg_hdr_rnd
+        # parsed_msg_hdr['rsv'], i = msg_hdr[i:i+self.size_msg_hdr_rsv], i+self.size_msg_hdr_rsv
         return parsed_msg_hdr
 
     # receives n bytes from the peer socket
@@ -90,6 +104,12 @@ class SiFT_MTP:
             raise SiFT_MTP_Error(
                 'Unknown message type found in message header')
 
+        # validation for len, sqn, rnd.... maybe
+
+        if parsed_msg_hdr['rsv'] != self.rsv_val:
+            raise SiFT_MTP_Error(
+                'Unknown reserved value found in message header')
+
         msg_len = int.from_bytes(parsed_msg_hdr['len'], byteorder='big')
 
         try:
@@ -120,18 +140,72 @@ class SiFT_MTP:
         except:
             raise SiFT_MTP_Error('Unable to send via peer socket')
 
+    def build_login_req(self, msg_payload):
+        # probably shouldn't hardcode this
+        msg_size = self.size_msg_hdr + len(msg_payload) + 12 + 256
+        msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
+        msg_hdr_sqn = b'0001'
+        msg_hdr_rnd = Crypto.Random.get_random_bytes(
+            6)
+        msg_hdr_rsv = b'0000'
+        msg_hdr = self.msg_hdr_ver + self.type_login_req + msg_hdr_len + \
+            msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
+
+        tk = Crypto.Random.get_random_bytes(32)
+        cipher = AES.new(tk, AES.MODE_GCM)
+        nonce = msg_hdr_sqn + msg_hdr_rnd
+        cipher.update(nonce)
+        epd, mac = cipher.encrypt_and_digest(msg_payload)
+        # cipher.update(msg_hdr)
+        # epd, mac = cipher.encrypt_and_digest(msg_payload)
+        print('mac: ' + str(len(mac)))  # should be 12, come back to this
+
+        # encrypt temporary key
+        with open("pubkey.pem", 'rb') as f:
+            pubkeystr = f.read()
+        RSAcipher = PKCS1_OAEP.new(RSA.import_key(pubkeystr))
+        etk = RSAcipher.encrypt(tk)
+        print(len(etk))
+
+        return msg_hdr + epd + mac + etk
+
     # builds and sends message of a given type using the provided payload
+
+    # build message
+
+    def build_login_res(self, msg_payload):
+        msg_size = self.size_msg_hdr + len(msg_payload)
+        msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
+        msg_hdr_sqn = 1
+        msg_hdr_rnd = str(Crypto.Random.get_random_bytes(
+            6))
+        msg_hdr_rsv = b'0000'
+        msg_hdr = self.msg_hdr_ver + self.type_login_res + msg_hdr_len + \
+            msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
+
+    def build_header(self, msg_type, msg_payload):
+        msg_size = self.size_msg_hdr + len(msg_payload)
+        msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
+        msg_hdr_sqn = 0  # edit this later w actual sequence numbers
+        msg_hdr_rnd = str(Crypto.Random.get_random_bytes(
+            6))
+        msg_hdr_rsv = b'0000'
+        msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len + \
+            msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
+        return msg_hdr
 
     def send_msg(self, msg_type, msg_payload):
 
-        # build message
-        msg_size = self.size_msg_hdr + len(msg_payload)
-        msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
-        msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len
+        if msg_type == self.type_login_req:
+            msg_hdr = self.build_login_req(msg_payload)
+        elif msg_type == self.type_login_res:
+            msg_hdr = self.build_login_res(msg_payload)
+        else:
+            msg_hdr = self.build_header(msg_type, msg_payload)
 
         # DEBUG
         if self.DEBUG:
-            print('MTP message to send (' + str(msg_size) + '):')
+            print('MTP message to send (' + str(len(msg_hdr)) + '):')
             print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
             print('BDY (' + str(len(msg_payload)) + '): ')
             print(msg_payload.hex())
@@ -144,7 +218,6 @@ class SiFT_MTP:
         except SiFT_MTP_Error as e:
             raise SiFT_MTP_Error(
                 'Unable to send message to peer --> ' + e.err_msg)
-
 
     def set_key(self, new_key):
         self.key = new_key
