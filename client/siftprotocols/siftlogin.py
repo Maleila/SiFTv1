@@ -12,7 +12,6 @@ from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util import Padding
 from Crypto.Protocol.KDF import HKDF
 
-
 class SiFT_LOGIN_Error(Exception):
 
     def __init__(self, err_msg):
@@ -117,8 +116,7 @@ class SiFT_LOGIN:
 
         # trying to receive a login request
         try:
-            msg_type, encrypted_msg_payload = self.mtp.receive_msg()
-            msg_payload = self.DECRYPT(keypair, encrypted_msg_payload)
+            msg_type, msg_payload = self.mtp.receive_msg()
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login request --> ' + e.err_msg)
@@ -144,7 +142,6 @@ class SiFT_LOGIN:
         # checking timestamp #might need to use float
         if abs(int(login_req_struct['timestamp']) - time.time_ns()) > 2000000000:
             raise SiFT_LOGIN_Error('Timestamp outside acceptance window')
-            # might need to explicitly tell it to stop if the error is raised we'll see
 
         # checking username and password
         if login_req_struct['username'] in self.server_users:
@@ -193,7 +190,6 @@ class SiFT_LOGIN:
         login_req_struct['client_random'] = Crypto.Random.get_random_bytes(
             16)
         msg_payload = self.build_login_req(login_req_struct)
-        encrypted_msg_payload = self.ENCRYPT(pubkey, msg_payload)
 
         # DEBUG
         if self.DEBUG:
@@ -204,7 +200,7 @@ class SiFT_LOGIN:
 
         # trying to send login request
         try:
-            self.mtp.send_msg(self.mtp.type_login_req, encrypted_msg_payload)
+            self.mtp.send_msg(self.mtp.type_login_req, msg_payload)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to send login request --> ' + e.err_msg)
