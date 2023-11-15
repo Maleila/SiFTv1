@@ -4,6 +4,8 @@ import socket
 import Crypto.Random
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.PublicKey import RSA
+import getpass
+import sys
 
 
 class SiFT_MTP_Error(Exception):
@@ -61,7 +63,8 @@ class SiFT_MTP:
                                            self.size_msg_hdr_sqn], i+self.size_msg_hdr_sqn
         parsed_msg_hdr['rnd'], i = msg_hdr[i:i +
                                            self.size_msg_hdr_rnd], i+self.size_msg_hdr_rnd
-        parsed_msg_hdr['rsv'], i = msg_hdr[i:i+self.size_msg_hdr_rsv], i+self.size_msg_hdr_rsv
+        parsed_msg_hdr['rsv'], i = msg_hdr[i:i +
+                                           self.size_msg_hdr_rsv], i+self.size_msg_hdr_rsv
         return parsed_msg_hdr
 
     # receives n bytes from the peer socket
@@ -83,20 +86,38 @@ class SiFT_MTP:
 
     def process_login_req(self, msg_hdr, msg):
         etk = msg[-256:]
+
+        # read in keypair
+        # passphrase = getpass.getpass(
+        #     'Enter a passphrase to decode the saved private key: ')
         with open("keypair.pem", 'rb') as f:
             keypairstr = f.read()
-        RSAcipher = PKCS1_OAEP.new(RSA.import_key(keypairstr))
+        try:
+            RSAcipher = PKCS1_OAEP.new(RSA.import_key(
+                keypairstr))
+        except ValueError:
+            print('Error: Cannot import private key from file keypair.pem')
+            sys.exit(1)
+
+        print("Received ETK:", etk.hex())
+        print("Type of etk: ", type(etk))
+
+        print("ETK Length:", len(etk))
         tk = RSAcipher.decrypt(etk)
+        print("Decrypted Temporary Key (tk):", tk.hex())
 
         nonce = msg_hdr['sqn'] + msg_hdr['rnd']
         cipher = AES.new(tk, AES.MODE_GCM, nonce)
         try:
-            decrypted_payload = cipher.decrypt_and_verify(msg[16:-256])
+            decrypted_payload = cipher.decrypt_and_verify(
+                msg[16:-272], msg[-272:-256])
         except ValueError as e:
-            raise SiFT_MTP_Error('MAC verification failed')
-        return decrypted_payload
+            print("Ciphertext Size:", len(msg[16:-256]))
+            raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
+        return decrypted_payload, tk
 
     # receives and parses message, returns msg_type and msg_payload
+
     def receive_msg(self):
         try:
             msg_hdr = self.receive_bytes(self.size_msg_hdr)
@@ -115,13 +136,13 @@ class SiFT_MTP:
         if parsed_msg_hdr['typ'] not in self.msg_types:
             raise SiFT_MTP_Error(
                 'Unknown message type found in message header')
-        
+
         print(parsed_msg_hdr['sqn'])
 
         if parsed_msg_hdr['typ'] == self.type_login_req:
             if parsed_msg_hdr['sqn'] != b'01':
                 raise SiFT_MTP_Error(
-                'Message sequence number error')
+                    'Message sequence number error')
 
         if parsed_msg_hdr['rsv'] != self.rsv_val:
             raise SiFT_MTP_Error(
@@ -130,7 +151,8 @@ class SiFT_MTP:
         msg_len = int.from_bytes(parsed_msg_hdr['len'], byteorder='big')
 
         try:
-            msg_body = self.receive_bytes(msg_len - self.size_msg_hdr)
+            msg_body = self.receive_bytes(
+                msg_len - self.size_msg_hdr)
         except SiFT_MTP_Error as e:
             raise SiFT_MTP_Error(
                 'Unable to receive message body --> ' + e.err_msg)
@@ -147,7 +169,7 @@ class SiFT_MTP:
         if len(msg_body) != msg_len - self.size_msg_hdr:
             raise SiFT_MTP_Error('Incomplete message body reveived')
 
-        #return parsed_msg_hdr['typ'], msg_body
+        # return parsed_msg_hdr['typ'], msg_body
         return parsed_msg_hdr, msg_body
 
     # sends all bytes provided via the peer socket
@@ -157,10 +179,10 @@ class SiFT_MTP:
         except:
             raise SiFT_MTP_Error('Unable to send via peer socket')
 
-    #builds a login request (used by client)
+    # builds a login request (used by client)
     def build_login_req(self, msg_payload):
         # probably shouldn't hardcode the last 2 lengths
-        msg_size = self.size_msg_hdr + len(msg_payload) + 12 + 256
+        msg_size = self.size_msg_hdr + len(msg_payload) + 16 + 256
         msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
         msg_hdr_sqn = b'01'
         msg_hdr_rnd = Crypto.Random.get_random_bytes(
@@ -169,35 +191,61 @@ class SiFT_MTP:
         msg_hdr = self.msg_hdr_ver + self.type_login_req + msg_hdr_len + \
             msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
 
-        #actually this is probably supposed to be the final transfer key from the login protocol
+        # tk is temporary key
         tk = Crypto.Random.get_random_bytes(32)
         nonce = msg_hdr_sqn + msg_hdr_rnd
         cipher = AES.new(tk, AES.MODE_GCM, nonce)
         cipher.update(msg_hdr+msg_payload)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
-        print('mac: ' + str(len(mac)))  # should be 12, come back to this
+        print('mac: ', len(mac))  # should be 12, come back to this
+        print('epd: ', len(epd))  # currently a mystery length?
 
         # encrypt temporary key
         with open("pubkey.pem", 'rb') as f:
             pubkeystr = f.read()
-        RSAcipher = PKCS1_OAEP.new(RSA.import_key(pubkeystr))
+        pubkey = RSA.import_key(pubkeystr)
+        RSAcipher = PKCS1_OAEP.new(pubkey)
+        # Get the key size in bits
+        key_size = pubkey.size_in_bits()
         etk = RSAcipher.encrypt(tk)
-        print(len(etk))
+        # is the correct size (256), but too long apparently
+        print("etk length: ", len(etk))
+        print("etk right after encryption: ", etk.hex())
+        print("RSA Key Size:", key_size, "bits")
+
+        # for debugging
+        print("DECRYPTING AGAIN")
+        with open("keypair.pem", 'rb') as f:
+            keypairstr = f.read()
+        keypair = RSA.import_key(keypairstr)
+        RSAcipher2 = PKCS1_OAEP.new(keypair)
+        plaintext_tk = RSAcipher2.decrypt(etk)
+        print(plaintext_tk)
 
         return msg_hdr + epd + mac + etk
 
     # builds a login response (used by the server)
-    def build_login_res(self, msg_payload):
-        msg_size = self.size_msg_hdr + len(msg_payload)
+
+    def build_login_res(self, msg_payload, tk):
+        msg_size = self.size_msg_hdr + \
+            len(msg_payload) + 12  # except really it's 16 rn
         msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
-        msg_hdr_sqn = 1
-        msg_hdr_rnd = str(Crypto.Random.get_random_bytes(
-            6))
-        msg_hdr_rsv = b'00'
+        msg_hdr_sqn = b'01'
+        msg_hdr_rnd = Crypto.Random.get_random_bytes(
+            6)
+        msg_hdr_rsv = self.rsv_val
         msg_hdr = self.msg_hdr_ver + self.type_login_res + msg_hdr_len + \
             msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
 
-    #builds a standard message
+        nonce = msg_hdr_sqn + msg_hdr_rnd
+        cipher = AES.new(tk, AES.MODE_GCM, nonce)
+        cipher.update(msg_hdr+msg_payload)
+        epd, mac = cipher.encrypt_and_digest(msg_payload)
+
+        return msg_hdr + epd + mac
+
+    # builds a standard message
+
     def build_msg(self, msg_type, msg_payload):
         msg_size = self.size_msg_hdr + len(msg_payload)
         msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
@@ -209,7 +257,7 @@ class SiFT_MTP:
             msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
         return msg_hdr+msg_payload
 
-    #sends message
+    # sends message
     def send_msg(self, msg_type, msg_payload):
         if msg_type == self.type_login_req:
             msg = self.build_login_req(msg_payload)
@@ -223,7 +271,7 @@ class SiFT_MTP:
             # print('MTP message to send (' + str(len(msg_hdr)) + '):')
             # print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
             print('BDY (' + str(len(msg_payload)) + '): ')
-            print(msg_payload.hex())
+            print("msg_payload: ", msg_payload.hex())
             print('------------------------------------------')
         # DEBUG
 

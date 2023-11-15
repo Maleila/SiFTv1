@@ -12,6 +12,7 @@ from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util import Padding
 from Crypto.Protocol.KDF import HKDF
 
+
 class SiFT_LOGIN_Error(Exception):
 
     def __init__(self, err_msg):
@@ -41,7 +42,8 @@ class SiFT_LOGIN:
         login_req_str = str(login_req_struct['timestamp'])
         login_req_str += self.delimiter + login_req_struct['username']
         login_req_str += self.delimiter + login_req_struct['password']
-        login_req_str += self.delimiter + str(login_req_struct['client_random'])
+        login_req_str += self.delimiter + \
+            str(login_req_struct['client_random'])
         return login_req_str.encode(self.coding)
 
     # parses a login request into a dictionary
@@ -66,7 +68,8 @@ class SiFT_LOGIN:
     def build_login_res(self, login_res_struct):
 
         login_res_str = login_res_struct['request_hash'].hex()
-        login_res_str += self.delimiter + str(login_res_struct['server_random'])
+        login_res_str += self.delimiter + \
+            str(login_res_struct['server_random'])
         return login_res_str.encode(self.coding)
 
     # parses a login response into a dictionary
@@ -118,7 +121,7 @@ class SiFT_LOGIN:
         try:
             msg_hdr, msg_body = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            msg_payload = self.mtp.process_login_req(msg_hdr, msg_body)
+            msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login request --> ' + e.err_msg)
@@ -241,7 +244,5 @@ class SiFT_LOGIN:
             bytes(login_res_struct['server_random'], "utf-8")
         final_transfer_key = HKDF(
             key_material, 32, login_res_struct['request_hash'], SHA256, 1)
-        
-        
 
         self.mtp.set_key(final_transfer_key)

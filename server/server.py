@@ -57,12 +57,12 @@ class Server:
         mtp = SiFT_MTP(client_socket)
 
         # read in keypair
-        passphrase = getpass.getpass(
-            'Enter a passphrase to decode the saved private key: ')
+        # passphrase = getpass.getpass(
+        #     'Enter a passphrase to decode the saved private key: ')
         with open("keypair.pem", 'rb') as f:
             keypairstr = f.read()
         try:
-            keypair = RSA.import_key(keypairstr, passphrase=passphrase)
+            keypair = RSA.import_key(keypairstr)
         except ValueError:
             print('Error: Cannot import private key from file keypair.pem')
             sys.exit(1)
