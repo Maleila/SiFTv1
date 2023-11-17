@@ -108,9 +108,18 @@ class SiFT_MTP:
 
         nonce = msg_hdr['sqn'] + msg_hdr['rnd']
         cipher = AES.new(tk, AES.MODE_GCM, nonce)
+        print("received message header: ", msg_hdr)
+        msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
+        print(msg_hdr['len'])
+        print("received message header: ", msg_hdr_bytes)
+        cipher.update(msg_hdr_bytes)
+        #need the raw message header not the parsed one
+        mac = msg[-272:-256]
+        print("mac len: ", len(mac))
+        print("received mac: ", mac)
         try:
             decrypted_payload = cipher.decrypt_and_verify(
-                msg[16:-272], msg[-272:-256])
+                msg[16:-272], mac)
         except ValueError as e:
             print("Ciphertext Size:", len(msg[16:-256]))
             raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
@@ -195,7 +204,7 @@ class SiFT_MTP:
         tk = Crypto.Random.get_random_bytes(32)
         nonce = msg_hdr_sqn + msg_hdr_rnd
         cipher = AES.new(tk, AES.MODE_GCM, nonce)
-        cipher.update(msg_hdr+msg_payload)
+        cipher.update(msg_hdr)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
         print('mac: ', len(mac))  # should be 12, come back to this
         print('epd: ', len(epd))  # currently a mystery length?
@@ -222,6 +231,16 @@ class SiFT_MTP:
         plaintext_tk = RSAcipher2.decrypt(etk)
         print(plaintext_tk)
 
+        #for debugging
+        print("VERFIYING MAC - ROUND ONE")
+        print("msg header ", msg_hdr)
+        nonce = msg_hdr_sqn + msg_hdr_rnd
+        cipher2 = AES.new(tk, AES.MODE_GCM, nonce)
+        cipher2.update(msg_hdr)
+        decrypted_payload = cipher2.decrypt_and_verify(
+                epd, mac)
+
+
         return msg_hdr + epd + mac + etk
 
     # builds a login response (used by the server)
@@ -239,7 +258,7 @@ class SiFT_MTP:
 
         nonce = msg_hdr_sqn + msg_hdr_rnd
         cipher = AES.new(tk, AES.MODE_GCM, nonce)
-        cipher.update(msg_hdr+msg_payload)
+        cipher.update(msg_hdr)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
 
         return msg_hdr + epd + mac
