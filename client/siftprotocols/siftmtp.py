@@ -99,29 +99,29 @@ class SiFT_MTP:
             print('Error: Cannot import private key from file keypair.pem')
             sys.exit(1)
 
-        print("Received ETK:", etk.hex())
-        print("Type of etk: ", type(etk))
+        #print("Received ETK:", etk.hex())
+        #print("Type of etk: ", type(etk))
 
-        print("ETK Length:", len(etk))
+        #print("ETK Length:", len(etk))
         tk = RSAcipher.decrypt(etk)
-        print("Decrypted Temporary Key (tk):", tk.hex())
+        #print("Decrypted Temporary Key (tk):", tk.hex())
 
         nonce = msg_hdr['sqn'] + msg_hdr['rnd']
         cipher = AES.new(tk, AES.MODE_GCM, nonce)
-        print("received message header: ", msg_hdr)
+        #print("received message header: ", msg_hdr)
         msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
-        print(msg_hdr['len'])
-        print("received message header: ", msg_hdr_bytes)
+        #print(msg_hdr['len'])
+        #print("received message header: ", msg_hdr_bytes)
         cipher.update(msg_hdr_bytes)
         #need the raw message header not the parsed one
         mac = msg[-272:-256]
-        print("mac len: ", len(mac))
-        print("received mac: ", mac)
+        #print("mac len: ", len(mac))
+        #print("received mac: ", mac)
         try:
             decrypted_payload = cipher.decrypt_and_verify(
-                msg[16:-272], mac)
+                msg[:-272], mac)
         except ValueError as e:
-            print("Ciphertext Size:", len(msg[16:-256]))
+            #print("Ciphertext Size:", len(msg[16:-256]))
             raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
         return decrypted_payload, tk
 
@@ -146,7 +146,7 @@ class SiFT_MTP:
             raise SiFT_MTP_Error(
                 'Unknown message type found in message header')
 
-        print(parsed_msg_hdr['sqn'])
+        #print(parsed_msg_hdr['sqn'])
 
         if parsed_msg_hdr['typ'] == self.type_login_req:
             if parsed_msg_hdr['sqn'] != b'01':
@@ -202,12 +202,14 @@ class SiFT_MTP:
 
         # tk is temporary key
         tk = Crypto.Random.get_random_bytes(32)
+        #print('tk pre-encryption: ', str(tk))
         nonce = msg_hdr_sqn + msg_hdr_rnd
+        #print('nonce', str(nonce))
         cipher = AES.new(tk, AES.MODE_GCM, nonce)
         cipher.update(msg_hdr)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
-        print('mac: ', len(mac))  # should be 12, come back to this
-        print('epd: ', len(epd))  # currently a mystery length?
+        #print('mac: ', len(mac))  # should be 12, come back to this
+        #print('epd: ', len(epd))  # currently a mystery length?
 
         # encrypt temporary key
         with open("pubkey.pem", 'rb') as f:
@@ -218,29 +220,28 @@ class SiFT_MTP:
         key_size = pubkey.size_in_bits()
         etk = RSAcipher.encrypt(tk)
         # is the correct size (256), but too long apparently
-        print("etk length: ", len(etk))
-        print("etk right after encryption: ", etk.hex())
-        print("RSA Key Size:", key_size, "bits")
+        #print("etk length: ", len(etk))
+        #print("etk right after encryption: ", etk.hex())
+        #print("RSA Key Size:", key_size, "bits")
 
         # for debugging
-        print("DECRYPTING AGAIN")
-        with open("keypair.pem", 'rb') as f:
-            keypairstr = f.read()
-        keypair = RSA.import_key(keypairstr)
-        RSAcipher2 = PKCS1_OAEP.new(keypair)
-        plaintext_tk = RSAcipher2.decrypt(etk)
-        print(plaintext_tk)
+        # print("DECRYPTING AGAIN")
+        # with open("keypair.pem", 'rb') as f:
+        #     keypairstr = f.read()
+        # keypair = RSA.import_key(keypairstr)
+        # RSAcipher2 = PKCS1_OAEP.new(keypair)
+        # plaintext_tk = RSAcipher2.decrypt(etk)
+        # print('tk', str(plaintext_tk))
 
         #for debugging
-        print("VERFIYING MAC - ROUND ONE")
-        print("msg header ", msg_hdr)
-        nonce = msg_hdr_sqn + msg_hdr_rnd
-        cipher2 = AES.new(tk, AES.MODE_GCM, nonce)
-        cipher2.update(msg_hdr)
-        decrypted_payload = cipher2.decrypt_and_verify(
-                epd, mac)
-
-
+        # print("VERFIYING MAC - ROUND ONE")
+        # print("msg header ", msg_hdr)
+        # nonce = msg_hdr_sqn + msg_hdr_rnd
+        # cipher2 = AES.new(tk, AES.MODE_GCM, nonce)
+        # cipher2.update(msg_hdr)
+        # print('encrypted payload', str(epd))
+        # decrypted_payload = cipher2.decrypt_and_verify(
+        #         epd, mac)
         return msg_hdr + epd + mac + etk
 
     # builds a login response (used by the server)
