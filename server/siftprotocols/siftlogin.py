@@ -84,25 +84,6 @@ class SiFT_LOGIN:
             return True
         return False
 
-    def DECRYPT(self, keypair, ciphertext):
-        print('Decrypting...')
-
-        RSAcipher = PKCS1_OAEP.new(keypair)
-        padded_plaintext = RSAcipher.decrypt(ciphertext)
-        plaintext = Padding.unpad(
-            padded_plaintext, AES.block_size, style='pkcs7')
-        return plaintext
-
-    def ENCRYPT(self, pubkey, plaintext):
-        print('Encrypting...')
-
-        RSAcipher = PKCS1_OAEP.new(pubkey)
-        # might need to change the block size
-        padded_plaintext = Padding.pad(
-            plaintext, AES.block_size, style='pkcs7')
-        cipherText = RSAcipher.encrypt(padded_plaintext)
-        return cipherText
-
     # handles login process (to be used by the server)
     def handle_login_server(self, keypair):
 
@@ -112,9 +93,9 @@ class SiFT_LOGIN:
 
         # trying to receive a login request
         try:
-            msg_hdr, msg_body = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
+            #msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login request --> ' + e.err_msg)
@@ -164,7 +145,7 @@ class SiFT_LOGIN:
 
         # sending login response
         try:
-            self.mtp.send_msg(self.mtp.type_login_res, msg_payload, tk)
+            self.mtp.send_msg(self.mtp.type_login_res, msg_payload)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to send login response --> ' + e.err_msg)
@@ -216,10 +197,9 @@ class SiFT_LOGIN:
 
         # trying to receive a login response
         try:
-            msg_hdr, msg_body = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            msg_payload = self.mtp.process_login_res(msg_hdr, msg_body)
-            #somehow need to send in tk so it can decrypt...
+            #msg_payload = self.mtp.process_login_res(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login response --> ' + e.err_msg)

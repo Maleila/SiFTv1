@@ -27,7 +27,7 @@ msg_header: 16 bytes (the same for login request and login response)
 
 mac: 12 bytes (! currently 16)
 
-payload: 12 bytes
+payload and encrypted payload: 12 bytes
 	login request:
 		client_random (r): 16 bytes
 		username: string

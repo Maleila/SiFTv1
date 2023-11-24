@@ -93,9 +93,9 @@ class SiFT_LOGIN:
 
         # trying to receive a login request
         try:
-            msg_hdr, msg_body = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
+            #msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login request --> ' + e.err_msg)
@@ -145,7 +145,7 @@ class SiFT_LOGIN:
 
         # sending login response
         try:
-            self.mtp.send_msg(self.mtp.type_login_res, msg_payload, tk)
+            self.mtp.send_msg(self.mtp.type_login_res, msg_payload)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to send login response --> ' + e.err_msg)
@@ -197,9 +197,9 @@ class SiFT_LOGIN:
 
         # trying to receive a login response
         try:
-            msg_hdr, msg_body = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            msg_payload = self.mtp.process_login_res(msg_hdr, msg_body)
+            #msg_payload = self.mtp.process_login_res(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login response --> ' + e.err_msg)
