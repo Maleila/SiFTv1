@@ -66,7 +66,8 @@ class SiFT_DNL:
 
                 # trying to receive a download response
                 try:
-                    msg_type, msg_payload = self.mtp.receive_msg()
+                    msg_hdr, msg_payload = self.mtp.receive_msg()
+                    msg_type = msg_hdr['typ']
                 except SiFT_MTP_Error as e:
                     raise SiFT_DNL_Error('Unable to receive download response --> ' + e.err_msg)
 
@@ -96,7 +97,8 @@ class SiFT_DNL:
 
         # trying to receive a download request
         try:
-            msg_type, msg_payload = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
+            msg_type = msg_hdr['typ']
         except SiFT_MTP_Error as e:
             raise SiFT_DNL_Error('Unable to receive download request --> ' + e.err_msg)
 

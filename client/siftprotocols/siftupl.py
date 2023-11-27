@@ -74,7 +74,8 @@ class SiFT_UPL:
 
         # trying to receive an upload response
         try:
-            msg_type, msg_payload = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
+            msg_type = msg_hdr['typ']
         except SiFT_MTP_Error as e:
             raise SiFT_UPL_Error('Unable to receive upload response --> ' + e.err_msg)
 
@@ -113,7 +114,8 @@ class SiFT_UPL:
 
                 # trying to receive an upload request
                 try:
-                    msg_type, msg_payload = self.mtp.receive_msg()
+                    msg_hdr, msg_payload = self.mtp.receive_msg()
+                    msg_type = msg_hdr['typ']
                 except SiFT_MTP_Error as e:
                     raise SiFT_UPL_Error('Unable to receive upload request --> ' + e.err_msg)
 

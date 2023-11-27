@@ -216,7 +216,8 @@ class SiFT_CMD:
 
         # trying to receive a command request
         try:
-            msg_type, msg_payload = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
+            msg_type = msg_hdr['typ']
         except SiFT_MTP_Error as e:
             raise SiFT_CMD_Error(
                 'Unable to receive command request --> ' + e.err_msg)
@@ -308,7 +309,8 @@ class SiFT_CMD:
 
         # trying to receive a command response
         try:
-            msg_type, msg_payload = self.mtp.receive_msg()
+            msg_hdr, msg_payload = self.mtp.receive_msg()
+            msg_type = msg_hdr['typ']
         except SiFT_MTP_Error as e:
             raise SiFT_CMD_Error(
                 'Unable to receive command response --> ' + e.err_msg)
