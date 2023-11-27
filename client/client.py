@@ -1,6 +1,10 @@
-#python3
+# python3
 
-import sys, os, socket, cmd, getpass
+import sys
+import os
+import socket
+import cmd
+import getpass
 from Crypto.Hash import SHA256
 from siftprotocols.siftmtp import SiFT_MTP, SiFT_MTP_Error
 from siftprotocols.siftlogin import SiFT_LOGIN, SiFT_LOGIN_Error
@@ -10,10 +14,11 @@ from siftprotocols.siftdnl import SiFT_DNL, SiFT_DNL_Error
 from Crypto.PublicKey import RSA
 
 # ----------- CONFIG -------------
-server_ip = '127.0.0.1' # localhost
+server_ip = '127.0.0.1'  # localhost
 # server_ip = '192.168.x.y'
 server_port = 5150
 # --------------------------------
+
 
 class SiFTShell(cmd.Cmd):
     intro = 'Client shell for the SiFT protocol. Type help or ? to list commands.\n'
@@ -24,7 +29,8 @@ class SiFTShell(cmd.Cmd):
     def do_pwd(self, arg):
         'Print current working directory on the server: pwd'
 
-        if arg: print('Command arguments are ignored...')
+        if arg:
+            print('Command arguments are ignored...')
 
         cmd_req_struct = {}
         cmd_req_struct['command'] = cmdp.cmd_pwd
@@ -41,7 +47,8 @@ class SiFTShell(cmd.Cmd):
     def do_ls(self, arg):
         'List content of the current working directory on the server: ls'
 
-        if arg: print('Command arguments are ignored...')
+        if arg:
+            print('Command arguments are ignored...')
 
         cmd_req_struct = {}
         cmd_req_struct['command'] = cmdp.cmd_lst
@@ -53,8 +60,10 @@ class SiFTShell(cmd.Cmd):
             if cmd_res_struct['result_1'] == cmdp.res_failure:
                 print('Remote_Error: ' + cmd_res_struct['result_2'])
             else:
-                if cmd_res_struct['result_2']: print(cmd_res_struct['result_2'])
-                else: print('[empty]')
+                if cmd_res_struct['result_2']:
+                    print(cmd_res_struct['result_2'])
+                else:
+                    print('[empty]')
 
     def do_cd(self, arg):
         'Change the current working directory on the server: cd <dirname>'
@@ -103,7 +112,8 @@ class SiFTShell(cmd.Cmd):
 
         filepath = arg.split(' ')[0]
         if (not os.path.exists(filepath)) or (not os.path.isfile(filepath)):
-            print('Local_Error: ' + filepath + ' does not exist or it is not a file')
+            print('Local_Error: ' + filepath +
+                  ' does not exist or it is not a file')
             return
         else:
             with open(filepath, 'rb') as f:
@@ -137,7 +147,7 @@ class SiFTShell(cmd.Cmd):
                         uplp.handle_upload_client(cmd_req_struct['param_1'])
                     except SiFT_UPL_Error as e:
                         print('Remote_Error: ' + e.err_msg)
-                    else: 
+                    else:
                         print('Completed.')
 
     def do_dnl(self, arg):
@@ -163,7 +173,8 @@ class SiFTShell(cmd.Cmd):
                     print('Starting download...')
                     dnlp = SiFT_DNL(mtp)
                     try:
-                        file_hash = dnlp.handle_download_client(cmd_req_struct['param_1'])
+                        file_hash = dnlp.handle_download_client(
+                            cmd_req_struct['param_1'])
                     except SiFT_DNL_Error as e:
                         print('Remote_Error: ' + e.err_msg)
                     else:
@@ -185,30 +196,32 @@ class SiFTShell(cmd.Cmd):
         print('Closing connection with server...')
         sckt.close()
         return True
-    
+
+
 # --------------------------------------
 if __name__ == '__main__':
 
     try:
-        sckt = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sckt.connect((server_ip, server_port))
     except:
         print('Network_Error: Cannot open connection to the server')
         sys.exit(1)
     else:
-        print('Connection to server established on ' + server_ip + ':' + str(server_port))
+        print('Connection to server established on ' +
+              server_ip + ':' + str(server_port))
 
     mtp = SiFT_MTP(sckt)
     loginp = SiFT_LOGIN(mtp)
 
-    #read in public key
-    with open("pubkey.pem", 'rb') as f:
-        pubkeystr = f.read()
-    try:
-        pubkey =  RSA.import_key(pubkeystr)
-    except ValueError:
-        print('Error: Cannot import public key from file pubkey.pem')
-        sys.exit(1)
+    # #read in public key
+    # with open("pubkey.pem", 'rb') as f:
+    #     pubkeystr = f.read()
+    # try:
+    #     pubkey =  RSA.import_key(pubkeystr)
+    # except ValueError:
+    #     print('Error: Cannot import public key from file pubkey.pem')
+    #     sys.exit(1)
 
     print()
     username = input('   Username: ')
@@ -216,7 +229,7 @@ if __name__ == '__main__':
     print()
 
     try:
-        loginp.handle_login_client(username, password, pubkey)
+        loginp.handle_login_client(username, password)
     except SiFT_LOGIN_Error as e:
         print('SiFT_LOGIN_Error: ' + e.err_msg)
         sys.exit(1)

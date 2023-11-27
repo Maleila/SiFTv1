@@ -42,7 +42,7 @@ class SiFT_MTP:
         self.type_dnload_res_1 = b'\x03\x11'
         self.rsv_val = b'00'
         self.AES_key = b''
-        self.sqn_rcv = 0 #turn this into bytes when needed - easier to increment as an int
+        self.sqn_rcv = 0  # turn this into bytes when needed - easier to increment as an int
         self.sqn_snd = 0
         self.msg_types = (self.type_login_req, self.type_login_res,
                           self.type_command_req, self.type_command_res,
@@ -85,52 +85,50 @@ class SiFT_MTP:
             bytes_received += chunk
             bytes_count += len(chunk)
         return bytes_received
-    
-    def process_login_res(self, msg_hdr, msg):
-        nonce = msg_hdr['sqn'] + msg_hdr['rnd']
-        cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
-        msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
-        cipher.update(msg_hdr_bytes)
-        mac = msg[-self.mac_size:]
-        try:
-            decrypted_payload = cipher.decrypt_and_verify(
-                msg[:-self.mac_size], mac)
-        except ValueError as e:
-            raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
-        return decrypted_payload
-        
 
-    def process_login_req(self, msg_hdr, msg):
-        etk = msg[-256:]
+    # def process_login_res(self, msg_hdr, msg):
+    #     nonce = msg_hdr['sqn'] + msg_hdr['rnd']
+    #     cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
+    #     msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
+    #     cipher.update(msg_hdr_bytes)
+    #     mac = msg[-self.mac_size:]
+    #     try:
+    #         decrypted_payload = cipher.decrypt_and_verify(
+    #             msg[:-self.mac_size], mac)
+    #     except ValueError as e:
+    #         raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
+    #     return decrypted_payload
 
-        # read in keypair
-        with open("keypair.pem", 'rb') as f:
-            keypairstr = f.read()
-        try:
-            RSAcipher = PKCS1_OAEP.new(RSA.import_key(
-                keypairstr))
-        except ValueError:
-            print('Error: Cannot import private key from file keypair.pem')
-            sys.exit(1)
+    # def process_login_req(self, msg_hdr, msg):
+    #     etk = msg[-256:]
 
-        tk = RSAcipher.decrypt(etk)
+    #     # read in keypair
+    #     with open("keypair.pem", 'rb') as f:
+    #         keypairstr = f.read()
+    #     try:
+    #         RSAcipher = PKCS1_OAEP.new(RSA.import_key(
+    #             keypairstr))
+    #     except ValueError:
+    #         print('Error: Cannot import private key from file keypair.pem')
+    #         sys.exit(1)
 
-        nonce = msg_hdr['sqn'] + msg_hdr['rnd']
-        cipher = AES.new(tk, AES.MODE_GCM, nonce)
-        msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
-        cipher.update(msg_hdr_bytes)
-        mac = msg[-272:-256]
-        try:
-            decrypted_payload = cipher.decrypt_and_verify(
-                msg[:-272], mac)
-        except ValueError as e:
-            raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
-        return decrypted_payload, tk
-    
-    
+    #     tk = RSAcipher.decrypt(etk)
+
+    #     nonce = msg_hdr['sqn'] + msg_hdr['rnd']
+    #     cipher = AES.new(tk, AES.MODE_GCM, nonce)
+    #     msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
+    #     cipher.update(msg_hdr_bytes)
+    #     mac = msg[-272:-256]
+    #     try:
+    #         decrypted_payload = cipher.decrypt_and_verify(
+    #             msg[:-272], mac)
+    #     except ValueError as e:
+    #         raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
+    #     return decrypted_payload, tk
+
     def decrypt_payload(self, msg_hdr, parsed_msg_hdr, msg):
-        
-        #if this is a login request, decrypt the encrypted temporary key
+
+        # if this is a login request, decrypt the encrypted temporary key
         if parsed_msg_hdr['typ'] == self.type_login_req:
             etk = msg[-256:]
 
@@ -146,12 +144,18 @@ class SiFT_MTP:
 
             tk = RSAcipher.decrypt(etk)
             self.AES_key = tk
-            #if this is a login request, account for the size of the etk when grabbing the mac and encrypted payload
-            mac = msg[-256-self.mac_size:-256] #it may not like the math in here
-            encrypted_payload = msg[:-272] #but if it works we should change this too
+            # if this is a login request, account for the size of the etk when grabbing the mac and encrypted payload
+            # it may not like the math in here
+            mac = msg[-256-self.mac_size:-256]
+            # but if it works we should change this too
+            encrypted_payload = msg[:-272]
         else:
             mac = msg[-self.mac_size:]
             encrypted_payload = msg[:-self.mac_size]
+            print("mac: ", mac.hex())
+            print("received encryption: ", encrypted_payload.hex())
+            print("header: ", msg_hdr.hex())
+            print("key:", self.AES_key.hex())
 
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
         cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
@@ -161,14 +165,14 @@ class SiFT_MTP:
                 encrypted_payload, mac)
         except ValueError as e:
             raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
-        
+
         if parsed_msg_hdr['typ'] == self.type_login_req:
             self.set_key(tk)
-        
+
         return decrypted_payload
-        
 
     # receives and parses message, returns msg_type and msg_payload
+
     def receive_msg(self):
         try:
             msg_hdr = self.receive_bytes(self.size_msg_hdr)
@@ -188,12 +192,12 @@ class SiFT_MTP:
             raise SiFT_MTP_Error(
                 'Unknown message type found in message header')
 
-        #print(parsed_msg_hdr['sqn'])
+        # print(parsed_msg_hdr['sqn'])
 
-        #validate sequence number
+        # validate sequence number
         if parsed_msg_hdr['sqn'] <= self.sqn_rcv.to_bytes(2, 'big'):
             raise SiFT_MTP_Error(
-                     'Message sequence number error')
+                'Message sequence number error')
 
         if parsed_msg_hdr['rsv'] != self.rsv_val:
             raise SiFT_MTP_Error(
@@ -219,11 +223,12 @@ class SiFT_MTP:
 
         if len(msg_body) != msg_len - self.size_msg_hdr:
             raise SiFT_MTP_Error('Incomplete message body reveived')
-        
-        #verify mac and decrypt the payload
-        decrypted_payload= self.decrypt_payload(msg_hdr, parsed_msg_hdr, msg_body)
 
-        #update receiving sequence number after successfully receiving a message
+        # verify mac and decrypt the payload
+        decrypted_payload = self.decrypt_payload(
+            msg_hdr, parsed_msg_hdr, msg_body)
+
+        # update receiving sequence number after successfully receiving a message
         self.sqn_rcv += 1
 
         # return parsed_msg_hdr['typ'], msg_body
@@ -241,40 +246,45 @@ class SiFT_MTP:
         msg_size = self.size_msg_hdr + \
             len(msg_payload) + self.mac_size
         if msg_type == self.type_login_req:
-            msg_size += 256 #account for etk in login request
+            msg_size += 256  # account for etk in login request
         msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
-        msg_hdr_sqn = (self.sqn_snd+1).to_bytes(2, "big") #use sqn_snd++
+        msg_hdr_sqn = (self.sqn_snd+1).to_bytes(2, "big")  # use sqn_snd++
         msg_hdr_rnd = Crypto.Random.get_random_bytes(
             6)
         msg_hdr_rsv = b'00'
         msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len + \
             msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
         return msg_hdr
-    
-    #encrypts payload and produces mac (for all message types)
+
+    # encrypts payload and produces mac (for all message types)
     def encrypt_payload(self, msg_hdr, msg_payload):
         parsed_msg_hdr = self.parse_msg_header(msg_hdr)
 
-        if(parsed_msg_hdr['typ'] == self.type_login_req):
+        if (parsed_msg_hdr['typ'] == self.type_login_req):
             # tk is temporary key
             tk = Crypto.Random.get_random_bytes(32)
-            #remember this temporary key so it can be used by the client later to decrypt login response
+            # remember this temporary key so it can be used by the client later to decrypt login response
             self.AES_key = tk
 
-             # encrypt temporary key
+            # encrypt temporary key
             with open("pubkey.pem", 'rb') as f:
                 pubkeystr = f.read()
             pubkey = RSA.import_key(pubkeystr)
             RSAcipher = PKCS1_OAEP.new(pubkey)
             etk = RSAcipher.encrypt(tk)
-        
-        #common steps
+
+        # common steps
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
         cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
         cipher.update(msg_hdr)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
 
-        if(parsed_msg_hdr['typ'] == self.type_login_req):
+        print("mac: ", mac.hex())
+        print("received encryption: ", epd.hex())
+        print("header: ", msg_hdr.hex())
+        print("temp key", self.AES_key.hex())
+
+        if (parsed_msg_hdr['typ'] == self.type_login_req):
             return epd + mac + etk
         else:
             return epd + mac
@@ -289,7 +299,8 @@ class SiFT_MTP:
         if self.DEBUG:
             print('MTP message to send (' + str(len(msg_hdr)) + '):')
             print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
-            print('BDY (' + str(len(msg_payload)) + '): ')
+            print('BDY (' + str(len(msg_body)) + '): ')
+            print(msg_body.hex())
             print("msg_payload: ", msg_payload.hex())
             print('------------------------------------------')
         # DEBUG
@@ -302,6 +313,7 @@ class SiFT_MTP:
             raise SiFT_MTP_Error(
                 'Unable to send message to peer --> ' + e.err_msg)
 
-    #change from temporary key to final transfer key
+    # change from temporary key to final transfer key
     def set_key(self, key):
         self.AES_key = key
+        print("key change (server side)")

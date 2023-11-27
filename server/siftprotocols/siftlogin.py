@@ -39,11 +39,11 @@ class SiFT_LOGIN:
 
     def build_login_req(self, login_req_struct):
 
-        login_req_str = str(login_req_struct['timestamp'])
+        login_req_str = login_req_struct['timestamp']
         login_req_str += self.delimiter + login_req_struct['username']
         login_req_str += self.delimiter + login_req_struct['password']
         login_req_str += self.delimiter + \
-            str(login_req_struct['client_random'])
+            login_req_struct['client_random'].decode("utf-8")
         return login_req_str.encode(self.coding)
 
     # parses a login request into a dictionary
@@ -63,7 +63,7 @@ class SiFT_LOGIN:
     def build_login_res(self, login_res_struct):
         login_res_str = str(login_res_struct['request_hash'])
         login_res_str += self.delimiter + \
-            str(login_res_struct['server_random'])
+            login_res_struct['server_random'].decode("utf-8")
         return login_res_str.encode(self.coding)
 
     # parses a login response into a dictionary
@@ -95,7 +95,7 @@ class SiFT_LOGIN:
         try:
             msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            #msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
+            # msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login request --> ' + e.err_msg)
@@ -165,7 +165,7 @@ class SiFT_LOGIN:
         return login_req_struct['username']
 
     # handles login process (to be used by the client)
-    def handle_login_client(self, username, password, pubkey):
+    def handle_login_client(self, username, password):
 
         # building a login request
         login_req_struct = {}
@@ -199,7 +199,7 @@ class SiFT_LOGIN:
         try:
             msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            #msg_payload = self.mtp.process_login_res(msg_hdr, msg_body)
+            # msg_payload = self.mtp.process_login_res(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login response --> ' + e.err_msg)
@@ -222,9 +222,17 @@ class SiFT_LOGIN:
         if login_res_struct['request_hash'] != request_hash:
             raise SiFT_LOGIN_Error('Verification of login response failed')
 
+        print("type client random: ", type(login_req_struct['client_random']))
+
         key_material = login_req_struct['client_random'] + \
             bytes(login_res_struct['server_random'], "utf-8")
         final_transfer_key = HKDF(
             key_material, 32, login_res_struct['request_hash'], SHA256, 1)
+
+        print("client random: ", login_req_struct['client_random'])
+        print("server random: ",
+              bytes(login_res_struct['server_random'], "utf-8"))
+        # str.encode(login_res_struct['server_random']))
+        print("request hash: ", login_res_struct['request_hash'].hex())
 
         self.mtp.set_key(final_transfer_key)
