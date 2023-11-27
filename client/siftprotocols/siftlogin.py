@@ -95,7 +95,6 @@ class SiFT_LOGIN:
         try:
             msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            # msg_payload, tk = self.mtp.process_login_req(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login request --> ' + e.err_msg)
@@ -155,13 +154,6 @@ class SiFT_LOGIN:
             print('User ' + login_req_struct['username'] + ' logged in')
         # DEBUG
 
-        # print("type client random: ", type(login_req_struct['client_random']))
-        # print("client random: ", bytes.fromhex(login_req_struct['client_random']))
-        # print("server random: ",
-        #       bytes.fromhex(login_res_struct['server_random']))
-        # str.encode(login_res_struct['server_random']))
-        # print("request hash: ", login_res_struct['request_hash'])
-
         key_material = bytes.fromhex(login_req_struct['client_random']) + \
             bytes.fromhex(login_res_struct['server_random'])
         final_transfer_key = HKDF(
@@ -206,7 +198,6 @@ class SiFT_LOGIN:
         try:
             msg_hdr, msg_payload = self.mtp.receive_msg()
             msg_type = msg_hdr['typ']
-            # msg_payload = self.mtp.process_login_res(msg_hdr, msg_body)
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login response --> ' + e.err_msg)
@@ -229,18 +220,9 @@ class SiFT_LOGIN:
         if login_res_struct['request_hash'] != request_hash:
             raise SiFT_LOGIN_Error('Verification of login response failed')
 
-        # print("type client random: ", type(login_req_struct['client_random']))
-        # print("client random: ", login_req_struct['client_random'])
-
         key_material = bytes.fromhex(login_req_struct['client_random']) + \
             bytes.fromhex(login_res_struct['server_random'])
         final_transfer_key = HKDF(
             key_material, 32, login_res_struct['request_hash'], SHA256, 1)
-
-        # print("client random: ", login_req_struct['client_random'])
-        # print("server random: ",
-        #       bytes(login_res_struct['server_random'], "utf-8"))
-        # str.encode(login_res_struct['server_random']))
-        # print("request hash: ", login_res_struct['request_hash'])
-
+        
         self.mtp.set_key(final_transfer_key)

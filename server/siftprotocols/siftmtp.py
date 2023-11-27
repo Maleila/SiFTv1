@@ -86,46 +86,6 @@ class SiFT_MTP:
             bytes_count += len(chunk)
         return bytes_received
 
-    # def process_login_res(self, msg_hdr, msg):
-    #     nonce = msg_hdr['sqn'] + msg_hdr['rnd']
-    #     cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
-    #     msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
-    #     cipher.update(msg_hdr_bytes)
-    #     mac = msg[-self.mac_size:]
-    #     try:
-    #         decrypted_payload = cipher.decrypt_and_verify(
-    #             msg[:-self.mac_size], mac)
-    #     except ValueError as e:
-    #         raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
-    #     return decrypted_payload
-
-    # def process_login_req(self, msg_hdr, msg):
-    #     etk = msg[-256:]
-
-    #     # read in keypair
-    #     with open("keypair.pem", 'rb') as f:
-    #         keypairstr = f.read()
-    #     try:
-    #         RSAcipher = PKCS1_OAEP.new(RSA.import_key(
-    #             keypairstr))
-    #     except ValueError:
-    #         print('Error: Cannot import private key from file keypair.pem')
-    #         sys.exit(1)
-
-    #     tk = RSAcipher.decrypt(etk)
-
-    #     nonce = msg_hdr['sqn'] + msg_hdr['rnd']
-    #     cipher = AES.new(tk, AES.MODE_GCM, nonce)
-    #     msg_hdr_bytes = msg_hdr["ver"]+msg_hdr["typ"]+msg_hdr["len"]+msg_hdr["sqn"]+msg_hdr["rnd"]+msg_hdr["rsv"]
-    #     cipher.update(msg_hdr_bytes)
-    #     mac = msg[-272:-256]
-    #     try:
-    #         decrypted_payload = cipher.decrypt_and_verify(
-    #             msg[:-272], mac)
-    #     except ValueError as e:
-    #         raise SiFT_MTP_Error('MAC verification failed: ' + str(e))
-    #     return decrypted_payload, tk
-
     def decrypt_payload(self, msg_hdr, parsed_msg_hdr, msg):
 
         # if this is a login request, decrypt the encrypted temporary key
@@ -316,4 +276,4 @@ class SiFT_MTP:
     # change from temporary key to final transfer key
     def set_key(self, key):
         self.AES_key = key
-        print("key change (server side)")
+        print("key change (client side)")
