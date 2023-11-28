@@ -93,8 +93,7 @@ class SiFT_LOGIN:
 
         # trying to receive a login request
         try:
-            msg_hdr, msg_payload = self.mtp.receive_msg()
-            msg_type = msg_hdr['typ']
+            msg_type, msg_payload = self.mtp.receive_msg()
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login request --> ' + e.err_msg)
@@ -196,8 +195,7 @@ class SiFT_LOGIN:
 
         # trying to receive a login response
         try:
-            msg_hdr, msg_payload = self.mtp.receive_msg()
-            msg_type = msg_hdr['typ']
+            msg_type, msg_payload = self.mtp.receive_msg()
         except SiFT_MTP_Error as e:
             raise SiFT_LOGIN_Error(
                 'Unable to receive login response --> ' + e.err_msg)
@@ -224,5 +222,5 @@ class SiFT_LOGIN:
             bytes.fromhex(login_res_struct['server_random'])
         final_transfer_key = HKDF(
             key_material, 32, login_res_struct['request_hash'], SHA256, 1)
-        
+
         self.mtp.set_key(final_transfer_key)

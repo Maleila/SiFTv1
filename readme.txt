@@ -15,6 +15,13 @@ For mtp.py and login.py files:
 	- Extend the message transfer protocol
 		- with cryptographic functions and replay protection
 
+4. Fixing/debugging
+ - get rid of extra keypair.pem
+ - fix mac length
+ - change returns of receive message method back to only msg type and decrypted payload
+ - general debug
+
+
 
 Lengths:
 msg_header: 16 bytes (the same for login request and login response)

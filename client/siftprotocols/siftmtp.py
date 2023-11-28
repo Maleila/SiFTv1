@@ -112,10 +112,10 @@ class SiFT_MTP:
         else:
             mac = msg[-self.mac_size:]
             encrypted_payload = msg[:-self.mac_size]
-            print("mac: ", mac.hex())
-            print("received encryption: ", encrypted_payload.hex())
-            print("header: ", msg_hdr.hex())
-            print("key:", self.AES_key.hex())
+            # print("mac: ", mac.hex())
+            # print("received encryption: ", encrypted_payload.hex())
+            # print("header: ", msg_hdr.hex())
+            # print("key:", self.AES_key.hex())
 
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
         cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
@@ -191,8 +191,8 @@ class SiFT_MTP:
         # update receiving sequence number after successfully receiving a message
         self.sqn_rcv += 1
 
-        # return parsed_msg_hdr['typ'], msg_body
-        return parsed_msg_hdr, decrypted_payload
+        return parsed_msg_hdr['typ'], decrypted_payload
+        # return parsed_msg_hdr, decrypted_payload
 
     # sends all bytes provided via the peer socket
     def send_bytes(self, bytes_to_send):
@@ -218,6 +218,7 @@ class SiFT_MTP:
 
     # encrypts payload and produces mac (for all message types)
     def encrypt_payload(self, msg_hdr, msg_payload):
+        print("LAST STRAW W THE PRINT STATEMENTS")
         parsed_msg_hdr = self.parse_msg_header(msg_hdr)
 
         if (parsed_msg_hdr['typ'] == self.type_login_req):
@@ -239,10 +240,10 @@ class SiFT_MTP:
         cipher.update(msg_hdr)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
 
-        print("mac: ", mac.hex())
-        print("received encryption: ", epd.hex())
-        print("header: ", msg_hdr.hex())
-        print("temp key", self.AES_key.hex())
+        # print("mac: ", mac.hex())
+        # print("received encryption: ", epd.hex())
+        # print("header: ", msg_hdr.hex())
+        # print("temp key", self.AES_key.hex())
 
         if (parsed_msg_hdr['typ'] == self.type_login_req):
             return epd + mac + etk

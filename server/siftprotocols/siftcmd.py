@@ -216,8 +216,7 @@ class SiFT_CMD:
 
         # trying to receive a command request
         try:
-            msg_hdr, msg_payload = self.mtp.receive_msg()
-            msg_type = msg_hdr['typ']
+            msg_type, msg_payload = self.mtp.receive_msg()
         except SiFT_MTP_Error as e:
             raise SiFT_CMD_Error(
                 'Unable to receive command request --> ' + e.err_msg)
@@ -309,8 +308,7 @@ class SiFT_CMD:
 
         # trying to receive a command response
         try:
-            msg_hdr, msg_payload = self.mtp.receive_msg()
-            msg_type = msg_hdr['typ']
+            msg_type, msg_payload = self.mtp.receive_msg()
         except SiFT_MTP_Error as e:
             raise SiFT_CMD_Error(
                 'Unable to receive command response --> ' + e.err_msg)
@@ -356,7 +354,6 @@ class SiFT_CMD:
         return True
 
     # execute command
-
     def exec_cmd(self, cmd_req_struct, request_hash):
 
         cmd_res_struct = {}
@@ -370,8 +367,10 @@ class SiFT_CMD:
 
         # lst
         elif cmd_req_struct['command'] == self.cmd_lst:
+            print("sanity check (client)")
             path = self.server_rootdir + \
                 self.user_rootdir + '/'.join(self.current_dir)
+            print("path: ", path)
             if os.path.exists(path):
                 dirlist_str = ''
                 with os.scandir(path) as dirlist:
@@ -388,6 +387,7 @@ class SiFT_CMD:
             else:
                 cmd_res_struct['result_1'] = self.res_failure
                 cmd_res_struct['result_2'] = 'Operation failed due to local error on server'
+                # cmd_res_struct['result_2'] = "path: " + str(path)
 
         # chd
         elif cmd_req_struct['command'] == self.cmd_chd:
@@ -426,6 +426,7 @@ class SiFT_CMD:
         # mkd
         elif cmd_req_struct['command'] == self.cmd_mkd:
             dirname = cmd_req_struct['param_1']
+            print(f"Attempting to create directory: {dirname}")
             if not self.check_fdname(dirname):
                 cmd_res_struct['result_1'] = self.res_failure
                 cmd_res_struct['result_2'] = 'Directory name is empty, starts with . or contains unsupported characters'
@@ -436,13 +437,15 @@ class SiFT_CMD:
                     path += dirname
                 else:
                     path += '/' + dirname
+                print(f"Full path for directory creation: {path}")
                 if os.path.exists(path):
                     cmd_res_struct['result_1'] = self.res_failure
                     cmd_res_struct['result_2'] = 'Directory already exists'
                 else:
                     try:
                         os.mkdir(path)
-                    except:
+                    except Exception as e:
+                        print(f"Error creating directory: {e}")
                         cmd_res_struct['result_1'] = self.res_failure
                         cmd_res_struct['result_2'] = 'Creating directory failed'
                     else:
