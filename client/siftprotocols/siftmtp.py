@@ -42,7 +42,7 @@ class SiFT_MTP:
         self.type_dnload_res_1 = b'\x03\x11'
         self.rsv_val = b'00'
         self.AES_key = b''
-        self.sqn_rcv = 0  # turn this into bytes when needed - easier to increment as an int
+        self.sqn_rcv = 0  # turned into bytes when needed - easier to increment as an int
         self.sqn_snd = 0
         self.msg_types = (self.type_login_req, self.type_login_res,
                           self.type_command_req, self.type_command_res,
@@ -51,8 +51,7 @@ class SiFT_MTP:
         # --------- STATE ------------
         self.peer_socket = peer_socket
 
-    # parses a message header and returns a dictionary containing the header fields
-
+    # parsed a message header and returned a dictionary containing the header fields
     def parse_msg_header(self, msg_hdr):
 
         parsed_msg_hdr, i = {}, 0
@@ -86,6 +85,7 @@ class SiFT_MTP:
             bytes_count += len(chunk)
         return bytes_received
 
+    #decrypts with AES and current key, as well as decrypting temporary key with RSA for login requests
     def decrypt_payload(self, msg_hdr, parsed_msg_hdr, msg):
 
         # if this is a login request, decrypt the encrypted temporary key
@@ -104,13 +104,14 @@ class SiFT_MTP:
 
             tk = RSAcipher.decrypt(etk)
             self.AES_key = tk
-            # if this is a login request, account for the size of the etk when grabbing the mac and encrypted payload
+            # if this is a login request, have to account for the size 
+            # of the etk when grabbing the mac and encrypted payload
             mac = msg[-256-self.mac_size:-256]
             encrypted_payload = msg[:-256-self.mac_size]
         else:
             mac = msg[-self.mac_size:]
             encrypted_payload = msg[:-self.mac_size]
-            print(f"mac: {len(mac)}", mac.hex())
+            # print(f"mac: {len(mac)}", mac.hex())
             # print("received encryption: ", encrypted_payload.hex())
             # print("header: ", msg_hdr.hex())
             # print("key:", self.AES_key.hex())
@@ -130,7 +131,6 @@ class SiFT_MTP:
         return decrypted_payload
 
     # receives and parses message, returns msg_type and msg_payload
-
     def receive_msg(self):
         try:
             msg_hdr = self.receive_bytes(self.size_msg_hdr)
@@ -149,8 +149,6 @@ class SiFT_MTP:
         if parsed_msg_hdr['typ'] not in self.msg_types:
             raise SiFT_MTP_Error(
                 'Unknown message type found in message header')
-
-        # print(parsed_msg_hdr['sqn'])
 
         # validate sequence number
         if parsed_msg_hdr['sqn'] <= self.sqn_rcv.to_bytes(2, 'big'):
@@ -190,7 +188,6 @@ class SiFT_MTP:
         self.sqn_rcv += 1
 
         return parsed_msg_hdr['typ'], decrypted_payload
-        # return parsed_msg_hdr, decrypted_payload
 
     # sends all bytes provided via the peer socket
     def send_bytes(self, bytes_to_send):
@@ -216,13 +213,12 @@ class SiFT_MTP:
 
     # encrypts payload and produces mac (for all message types)
     def encrypt_payload(self, msg_hdr, msg_payload):
-        print("LAST STRAW W THE PRINT STATEMENTS")
         parsed_msg_hdr = self.parse_msg_header(msg_hdr)
 
         if (parsed_msg_hdr['typ'] == self.type_login_req):
-            # tk is temporary key
+            # temporary key
             tk = Crypto.Random.get_random_bytes(32)
-            # remember this temporary key so it can be used by the client later to decrypt login response
+            # save this temporary key so it can be used by the client later to decrypt login response
             self.AES_key = tk
 
             # encrypt temporary key

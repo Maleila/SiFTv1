@@ -31,12 +31,10 @@ class SiFT_LOGIN:
         self.server_users = None
 
     # sets user passwords dictionary (to be used by the server)
-
     def set_server_users(self, users):
         self.server_users = users
 
     # builds a login request from a dictionary
-
     def build_login_req(self, login_req_struct):
 
         login_req_str = str(login_req_struct['timestamp'])
@@ -47,7 +45,6 @@ class SiFT_LOGIN:
         return login_req_str.encode(self.coding)
 
     # parses a login request into a dictionary
-
     def parse_login_req(self, login_req):
         login_req_fields = login_req.decode(self.coding).split(self.delimiter)
         login_req_struct = {}
@@ -59,7 +56,6 @@ class SiFT_LOGIN:
         return login_req_struct
 
     # builds a login response from a dictionary
-
     def build_login_res(self, login_res_struct):
         login_res_str = str(login_res_struct['request_hash'])
         login_res_str += self.delimiter + \
@@ -75,7 +71,6 @@ class SiFT_LOGIN:
         return login_res_struct
 
     # check correctness of a provided password
-
     def check_password(self, pwd, usr_struct):
 
         pwdhash = PBKDF2(pwd, usr_struct['salt'], len(
