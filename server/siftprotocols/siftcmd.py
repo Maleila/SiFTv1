@@ -446,6 +446,7 @@ class SiFT_CMD:
                         os.mkdir(path)
                     except Exception as e:
                         print(f"Error creating directory: {e}")
+                        print(f"path: {path}")
                         cmd_res_struct['result_1'] = self.res_failure
                         cmd_res_struct['result_2'] = 'Creating directory failed'
                     else:

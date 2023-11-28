@@ -29,7 +29,7 @@ class SiFT_MTP:
         self.size_msg_hdr_sqn = 2
         self.size_msg_hdr_rnd = 6
         self.size_msg_hdr_rsv = 2
-        self.mac_size = 16
+        self.mac_size = 12
         self.type_login_req = b'\x00\x00'
         self.type_login_res = b'\x00\x10'
         self.type_command_req = b'\x01\x00'
@@ -105,20 +105,18 @@ class SiFT_MTP:
             tk = RSAcipher.decrypt(etk)
             self.AES_key = tk
             # if this is a login request, account for the size of the etk when grabbing the mac and encrypted payload
-            # it may not like the math in here
             mac = msg[-256-self.mac_size:-256]
-            # but if it works we should change this too
-            encrypted_payload = msg[:-272]
+            encrypted_payload = msg[:-256-self.mac_size]
         else:
             mac = msg[-self.mac_size:]
             encrypted_payload = msg[:-self.mac_size]
-            # print("mac: ", mac.hex())
+            print(f"mac: {len(mac)}", mac.hex())
             # print("received encryption: ", encrypted_payload.hex())
             # print("header: ", msg_hdr.hex())
             # print("key:", self.AES_key.hex())
 
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
-        cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
+        cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce=nonce, mac_len=12)
         cipher.update(msg_hdr)
         try:
             decrypted_payload = cipher.decrypt_and_verify(
@@ -236,7 +234,7 @@ class SiFT_MTP:
 
         # common steps
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
-        cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce)
+        cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce=nonce, mac_len=12)
         cipher.update(msg_hdr)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
 
