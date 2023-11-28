@@ -1,3 +1,10 @@
+BEFORE SUBMITTING
+1. take out ALL unnecessary print statements (there are still a few)
+2. double check against examples in specs
+3. check interoperability
+4. read over specs again and make sure we got all the stuff D:
+5. double check we have comments for all methods (not really necessary but just to be consistent)
+
 To-do list:
 
 For client.py and server.py files:
