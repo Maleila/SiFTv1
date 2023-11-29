@@ -15,6 +15,8 @@ from Crypto.PublicKey import RSA
 
 # ----------- CONFIG -------------
 server_ip = '127.0.0.1'  # localhost
+#server_ip = '192.168.21.202' # Zihan IP
+#server_ip = '192.168.21.206' # Lu IP
 # server_ip = '192.168.x.y'
 server_port = 5150
 # --------------------------------

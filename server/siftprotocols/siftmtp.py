@@ -21,7 +21,7 @@ class SiFT_MTP:
         # --------- CONSTANTS ------------
         self.version_major = 0
         self.version_minor = 5
-        self.msg_hdr_ver = b'\x00\x05'
+        self.msg_hdr_ver = b'\x01\x00'
         self.size_msg_hdr = 16
         self.size_msg_hdr_ver = 2
         self.size_msg_hdr_typ = 2
@@ -40,7 +40,7 @@ class SiFT_MTP:
         self.type_dnload_req = b'\x03\x00'
         self.type_dnload_res_0 = b'\x03\x10'
         self.type_dnload_res_1 = b'\x03\x11'
-        self.rsv_val = b'00'
+        self.rsv_val = b'\x00\x00'
         self.AES_key = b''
         self.sqn_rcv = 0  # turned into bytes when needed - easier to increment as an int
         self.sqn_snd = 0
@@ -114,7 +114,19 @@ class SiFT_MTP:
             # print(f"mac: {len(mac)}", mac.hex())
             # print("received encryption: ", encrypted_payload.hex())
             # print("header: ", msg_hdr.hex())
-            # print("key:", self.AES_key.hex())
+            # print("key:", self.AES_key.hex()
+
+        # DEBUG
+        if self.DEBUG:
+            print('MTP message received:')
+            print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
+            print('EPD (' + str(len(encrypted_payload)) + '): ' + encrypted_payload.hex())
+            print('MAC (' + str(len(mac)) + '): ' + mac.hex())
+            if parsed_msg_hdr['typ'] == self.type_login_req:
+                print('ETK (' + str(len(etk)) + '): '+ etk.hex())
+            
+        print('------------------------------------------')
+            
 
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
         cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce=nonce, mac_len=12)
@@ -168,22 +180,13 @@ class SiFT_MTP:
             raise SiFT_MTP_Error(
                 'Unable to receive message body --> ' + e.err_msg)
 
-        # DEBUG
-        if self.DEBUG:
-            print('MTP message received (' + str(msg_len) + '):')
-            print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
-            print('BDY (' + str(len(msg_body)) + '): ')
-            print(msg_body.hex())
-            print('------------------------------------------')
-        # DEBUG
-
         if len(msg_body) != msg_len - self.size_msg_hdr:
             raise SiFT_MTP_Error('Incomplete message body reveived')
 
         # verify mac and decrypt the payload
         decrypted_payload = self.decrypt_payload(
             msg_hdr, parsed_msg_hdr, msg_body)
-
+        
         # update receiving sequence number after successfully receiving a message
         self.sqn_rcv += 1
 
@@ -206,7 +209,7 @@ class SiFT_MTP:
         msg_hdr_sqn = (self.sqn_snd+1).to_bytes(2, "big")  # use sqn_snd++
         msg_hdr_rnd = Crypto.Random.get_random_bytes(
             6)
-        msg_hdr_rsv = b'00'
+        msg_hdr_rsv = self.rsv_val
         msg_hdr = self.msg_hdr_ver + msg_type + msg_hdr_len + \
             msg_hdr_sqn + msg_hdr_rnd + msg_hdr_rsv
         return msg_hdr
@@ -222,11 +225,13 @@ class SiFT_MTP:
             self.AES_key = tk
 
             # encrypt temporary key
-            with open("pubkey.pem", 'rb') as f:
+            #with open("pubkey.pem", 'rb') as f:
+            with open("server_pubkey.pem", 'rb') as f:
                 pubkeystr = f.read()
             pubkey = RSA.import_key(pubkeystr)
             RSAcipher = PKCS1_OAEP.new(pubkey)
             etk = RSAcipher.encrypt(tk)
+
 
         # common steps
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
@@ -239,6 +244,17 @@ class SiFT_MTP:
         # print("header: ", msg_hdr.hex())
         # print("temp key", self.AES_key.hex())
 
+        # DEBUG
+        if self.DEBUG:
+            print('MTP message to send:')
+            print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
+            print('EPD (' + str(len(epd)) + '): ' + epd.hex())
+            print('MAC (' + str(len(mac)) + '): ' + mac.hex())
+            if parsed_msg_hdr['typ'] == self.type_login_req:
+                print('ETK (' + str(len(etk)) + '): '+ etk.hex())
+            
+        print('------------------------------------------')
+
         if (parsed_msg_hdr['typ'] == self.type_login_req):
             return epd + mac + etk
         else:
@@ -249,16 +265,6 @@ class SiFT_MTP:
         msg_hdr = self.build_msg_hdr(msg_type, msg_payload)
         msg_body = self.encrypt_payload(msg_hdr, msg_payload)
         msg = msg_hdr + msg_body
-
-        # DEBUG
-        if self.DEBUG:
-            print('MTP message to send (' + str(len(msg_hdr)) + '):')
-            print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
-            print('BDY (' + str(len(msg_body)) + '): ')
-            print(msg_body.hex())
-            print("msg_payload: ", msg_payload.hex())
-            print('------------------------------------------')
-        # DEBUG
 
         # try to send
         try:
@@ -271,4 +277,4 @@ class SiFT_MTP:
     # change from temporary key to final transfer key
     def set_key(self, key):
         self.AES_key = key
-        print("key change (client side)")
+        # print("key change (client side)")
