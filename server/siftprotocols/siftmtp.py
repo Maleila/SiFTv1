@@ -111,22 +111,16 @@ class SiFT_MTP:
         else:
             mac = msg[-self.mac_size:]
             encrypted_payload = msg[:-self.mac_size]
-            # print(f"mac: {len(mac)}", mac.hex())
-            # print("received encryption: ", encrypted_payload.hex())
-            # print("header: ", msg_hdr.hex())
-            # print("key:", self.AES_key.hex()
 
         # DEBUG
         if self.DEBUG:
-            print('MTP message received:')
+            print('Message received:')
             print('HDR (' + str(len(msg_hdr)) + '): ' + msg_hdr.hex())
             print('EPD (' + str(len(encrypted_payload)) + '): ' + encrypted_payload.hex())
             print('MAC (' + str(len(mac)) + '): ' + mac.hex())
             if parsed_msg_hdr['typ'] == self.type_login_req:
-                print('ETK (' + str(len(etk)) + '): '+ etk.hex())
-            
-        print('------------------------------------------')
-            
+                print('ETK (' + str(len(etk)) + '): '+ etk.hex())      
+        print('------------------------------------------')      
 
         nonce = parsed_msg_hdr['sqn'] + parsed_msg_hdr['rnd']
         cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce=nonce, mac_len=12)
@@ -206,7 +200,7 @@ class SiFT_MTP:
         if msg_type == self.type_login_req:
             msg_size += 256  # account for etk in login request
         msg_hdr_len = msg_size.to_bytes(self.size_msg_hdr_len, byteorder='big')
-        msg_hdr_sqn = (self.sqn_snd+1).to_bytes(2, "big")  # use sqn_snd++
+        msg_hdr_sqn = (self.sqn_snd+1).to_bytes(2, "big") 
         msg_hdr_rnd = Crypto.Random.get_random_bytes(
             6)
         msg_hdr_rsv = self.rsv_val
@@ -225,8 +219,7 @@ class SiFT_MTP:
             self.AES_key = tk
 
             # encrypt temporary key
-            #with open("pubkey.pem", 'rb') as f:
-            with open("server_pubkey.pem", 'rb') as f:
+            with open("pubkey.pem", 'rb') as f:
                 pubkeystr = f.read()
             pubkey = RSA.import_key(pubkeystr)
             RSAcipher = PKCS1_OAEP.new(pubkey)
@@ -238,11 +231,6 @@ class SiFT_MTP:
         cipher = AES.new(self.AES_key, AES.MODE_GCM, nonce=nonce, mac_len=12)
         cipher.update(msg_hdr)
         epd, mac = cipher.encrypt_and_digest(msg_payload)
-
-        # print("mac: ", mac.hex())
-        # print("received encryption: ", epd.hex())
-        # print("header: ", msg_hdr.hex())
-        # print("temp key", self.AES_key.hex())
 
         # DEBUG
         if self.DEBUG:
@@ -277,4 +265,3 @@ class SiFT_MTP:
     # change from temporary key to final transfer key
     def set_key(self, key):
         self.AES_key = key
-        # print("key change (client side)")
